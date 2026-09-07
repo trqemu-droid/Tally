@@ -1,0 +1,1433 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Tally Helper — কার্টুন টালি</title>
+<meta name="description" content="কার্টুন স্ট্যাক গোনা ও টালি রাখার সহায়ক অ্যাপ">
+<meta name="theme-color" content="#26231C">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tally Helper">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700;800&family=Oswald:wght@500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script type="module">
+  import { BarcodeDetector } from "https://fastly.jsdelivr.net/npm/barcode-detector@2/dist/es/pure.min.js";
+  window.__BarcodeDetector = BarcodeDetector;
+</script>
+<style>
+  :root{
+    --kraft:#EDE2CC;
+    --kraft-dark:#E3D4B4;
+    --ink:#26231C;
+    --ink-soft:#5B5646;
+    --stamp-amber:#D97B1F;
+    --stamp-amber-dark:#B6620F;
+    --stamp-green:#3E6552;
+    --stamp-red:#B23A2E;
+    --card:#F7F1E2;
+    --line:#C9B98F;
+    --shadow: 0 2px 0 rgba(38,35,28,0.18);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Noto Sans Bengali','Oswald',sans-serif;
+    background:
+      repeating-linear-gradient(135deg, rgba(0,0,0,0.015) 0px, rgba(0,0,0,0.015) 2px, transparent 2px, transparent 14px),
+      var(--kraft);
+    color:var(--ink);
+    min-height:100vh;
+    padding-bottom:40px;
+  }
+  .wrap{max-width:460px; margin:0 auto; padding:0 14px;}
+
+  /* Header */
+  header{ padding:22px 14px 16px; text-align:center; position:relative; }
+  .brand-stamp{
+    display:inline-flex; align-items:center; gap:8px;
+    border:3px solid var(--ink); border-radius:6px; padding:6px 16px;
+    transform:rotate(-2deg); background:var(--card);
+  }
+  .brand-stamp svg{width:26px;height:26px;flex-shrink:0;}
+  .brand-title{ font-family:'Oswald',sans-serif; font-weight:700; font-size:22px; letter-spacing:0.5px; text-transform:uppercase; }
+  .brand-sub{ margin-top:8px; font-size:12.5px; color:var(--ink-soft); letter-spacing:0.5px; }
+
+  /* Container info bar */
+  .doc-card{ background:var(--card); border:2px solid var(--ink); border-radius:10px; box-shadow:var(--shadow); padding:14px 16px; margin:14px 0; }
+  .doc-card-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .doc-card-head .label{ font-family:'Oswald',sans-serif; font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:1px; color:var(--ink-soft); }
+  .edit-btn{ background:none; border:none; color:var(--stamp-amber-dark); font-family:'Noto Sans Bengali',sans-serif; font-weight:600; font-size:13px; cursor:pointer; padding:4px 8px; }
+  .doc-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px 14px; }
+  .doc-field{ display:flex; flex-direction:column; gap:2px; }
+  .doc-field .k{font-size:11px; color:var(--ink-soft); letter-spacing:0.5px;}
+  .doc-field .v{ font-family:'JetBrains Mono',monospace; font-weight:600; font-size:15px; }
+  .doc-field.full{grid-column:1/-1;}
+  .doc-empty{ font-size:13px; color:var(--ink-soft); text-align:center; padding:6px 0; }
+
+  .doc-form input{
+    width:100%; font-family:'JetBrains Mono',monospace; font-size:15px;
+    padding:9px 10px; border:1.5px solid var(--line); border-radius:6px;
+    background:#fff; color:var(--ink); margin-top:3px;
+  }
+  .doc-form label{font-size:11px; color:var(--ink-soft); letter-spacing:0.5px;}
+  .doc-form .field{margin-bottom:10px;}
+  .doc-form .actions{display:flex; gap:10px; margin-top:4px;}
+
+  button{ font-family:inherit; cursor:pointer; }
+  .btn{ border:2px solid var(--ink); border-radius:8px; padding:10px 14px; font-weight:600; font-size:14px; background:var(--card); box-shadow:var(--shadow); }
+  .btn:active{ transform:translateY(2px); box-shadow:none; }
+  .btn-primary{ background:var(--stamp-amber); color:#fff; border-color:var(--ink); }
+  .btn-green{ background:var(--stamp-green); color:#fff; border-color:var(--ink); }
+  .btn-ghost{ background:transparent; box-shadow:none; }
+  .btn-block{ width:100%; }
+  .btn:disabled{ opacity:0.5; }
+
+  /* Add stack button */
+  .add-stack-btn{
+    width:100%; display:flex; align-items:center; justify-content:center; gap:10px;
+    background:var(--ink); color:var(--kraft); border:none; border-radius:10px; padding:16px;
+    font-family:'Oswald',sans-serif; font-size:16px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase;
+    margin:16px 0; box-shadow:0 3px 0 rgba(0,0,0,0.3);
+  }
+  .add-stack-btn:active{ transform:translateY(3px); box-shadow:none; }
+  .add-stack-btn svg{width:22px;height:22px;}
+  #fileFallbackInput{ display:none; }
+
+  /* Camera panel */
+  .camera-panel{ background:#000; border:2px solid var(--ink); border-radius:10px; overflow:hidden; margin:14px 0; }
+  .camera-video-wrap{ position:relative; background:#000; }
+  .camera-video-wrap video{ width:100%; display:block; max-height:340px; object-fit:cover; }
+  .camera-topbar{
+    position:absolute; top:10px; right:10px; display:flex; gap:8px;
+  }
+  .cam-icon-btn{
+    width:40px; height:40px; border-radius:50%; border:none;
+    background:rgba(0,0,0,0.55); color:#fff; display:flex; align-items:center; justify-content:center;
+  }
+  .cam-icon-btn.active{ background:var(--stamp-amber); }
+  .cam-icon-btn svg{ width:20px; height:20px; }
+  .camera-controls{ display:flex; align-items:center; justify-content:center; gap:26px; padding:16px; background:#111; }
+  .shutter-btn{
+    width:62px; height:62px; border-radius:50%; background:#fff; border:4px solid var(--stamp-amber);
+  }
+  .shutter-btn:active{ background:var(--kraft-dark); }
+  .cam-cancel-btn{ background:none; border:none; color:#ddd; font-size:13px; }
+  .camera-error{ color:#F6DCD8; font-size:13px; padding:16px; text-align:center; }
+
+  /* Capture / review panel */
+  .capture-panel{ background:var(--card); border:2px solid var(--ink); border-radius:10px; padding:14px; margin:14px 0; }
+  .capture-panel h3{ margin:0 0 10px; font-family:'Oswald',sans-serif; font-size:15px; text-transform:uppercase; letter-spacing:0.5px; }
+  .capture-img-wrap{ border-radius:8px; overflow:hidden; border:1.5px solid var(--line); margin-bottom:12px; background:#00000010; max-height:260px; }
+  .capture-img-wrap img{ width:100%; display:block; max-height:260px; object-fit:cover; }
+
+  .loading-row{ display:flex; align-items:center; gap:10px; padding:12px 4px; font-size:14px; color:var(--ink-soft); }
+  .spinner{ width:20px; height:20px; border-radius:50%; border:3px solid var(--line); border-top-color:var(--stamp-amber); animation:spin 0.8s linear infinite; flex-shrink:0; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  .count-result{ display:flex; align-items:center; justify-content:space-between; background:#fff; border:1.5px solid var(--line); border-radius:8px; padding:12px 14px; margin-bottom:8px; }
+  .count-result .cr-label{ font-size:13px; color:var(--ink-soft); }
+  .count-result .cr-badge{ font-size:11px; padding:2px 8px; border-radius:10px; margin-left:6px; font-weight:600; }
+  .conf-high{ background:#DCEFE3; color:var(--stamp-green); }
+  .conf-medium{ background:#FBEBD3; color:var(--stamp-amber-dark); }
+  .conf-low{ background:#F6DCD8; color:var(--stamp-red); }
+
+  .count-input-row{ display:flex; align-items:center; gap:10px; margin:10px 0 14px; }
+  .count-input-row .stepper{ display:flex; align-items:center; border:2px solid var(--ink); border-radius:8px; overflow:hidden; }
+  .stepper button{ background:var(--kraft-dark); border:none; width:38px; height:42px; font-size:20px; font-weight:700; color:var(--ink); }
+  .stepper input{ width:64px; text-align:center; border:none; font-family:'JetBrains Mono',monospace; font-size:20px; font-weight:700; height:42px; background:#fff; }
+  .count-input-row .hint{ font-size:12px; color:var(--ink-soft); }
+
+  .error-box{ background:#F6DCD8; border:1.5px solid var(--stamp-red); color:#7A2A21; border-radius:8px; padding:10px 12px; font-size:13px; margin-bottom:10px; }
+
+  .panel-actions{ display:flex; gap:10px; }
+  .panel-actions .btn{ flex:1; }
+
+  /* Stack list */
+  .section-title{ font-family:'Oswald',sans-serif; font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:1px; color:var(--ink-soft); margin:22px 2px 10px; display:flex; justify-content:space-between; align-items:center; }
+  .stack-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .stamp-card{ background:var(--card); border:2px solid var(--ink); border-radius:10px; padding:12px; position:relative; box-shadow:var(--shadow); }
+  .stamp-card .top-row{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .stamp-card .num-badge{
+    width:34px; height:34px; border-radius:50%; border:2.5px solid var(--stamp-amber-dark);
+    display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; font-weight:700; font-size:13px;
+    color:var(--stamp-amber-dark); transform:rotate(-6deg); flex-shrink:0;
+  }
+  .stamp-card .photo-icon-btn{
+    width:30px; height:30px; border-radius:7px; border:1.5px solid var(--line); background:#fff;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; padding:0;
+  }
+  .stamp-card .photo-icon-btn img{ width:100%; height:100%; object-fit:cover; }
+  .stamp-card .photo-icon-btn svg{ width:16px; height:16px; color:var(--ink-soft); }
+  .stamp-card .count-num{ font-family:'JetBrains Mono',monospace; font-size:26px; font-weight:700; line-height:1; }
+  .stamp-card .count-lbl{ font-size:11px; color:var(--ink-soft); margin-top:2px; }
+  .stamp-card .del-btn{
+    position:absolute; top:8px; right:8px; background:none; border:none;
+    color:var(--ink-soft); font-size:16px; line-height:1; padding:4px;
+  }
+
+  /* Photo preview modal */
+  .photo-modal{
+    position:fixed; inset:0; background:rgba(0,0,0,0.88); z-index:60;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px;
+  }
+  .photo-modal img{ max-width:100%; max-height:78vh; border-radius:8px; border:2px solid rgba(255,255,255,0.2); }
+  .photo-modal .pm-label{ color:#EDE2CC; font-family:'JetBrains Mono',monospace; font-size:14px; margin-top:14px; font-weight:600; }
+  .photo-modal .pm-close{
+    position:absolute; top:18px; right:18px; width:38px; height:38px; border-radius:50%;
+    background:rgba(255,255,255,0.12); border:none; color:#fff; display:flex; align-items:center; justify-content:center;
+  }
+
+  /* Load plan */
+  .loadplan-card{ background:var(--card); border:2px solid var(--ink); border-radius:10px; box-shadow:var(--shadow); padding:14px 16px; margin:14px 0; }
+  .loadplan-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .loadplan-head .label{ font-family:'Oswald',sans-serif; font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:1px; color:var(--ink-soft); }
+  .loadplan-row{ display:flex; gap:10px; overflow-x:auto; padding-bottom:2px; }
+  .loadplan-thumb-wrap{ position:relative; flex-shrink:0; }
+  .loadplan-thumb{ width:64px; height:64px; border-radius:8px; object-fit:cover; border:1.5px solid var(--line); display:block; }
+  .loadplan-thumb-del{
+    position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%;
+    background:var(--stamp-red); color:#fff; border:2px solid var(--card); font-size:11px; line-height:1; padding:0;
+  }
+  .loadplan-add-tile{
+    width:64px; height:64px; border-radius:8px; border:2px dashed var(--line); flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; background:#fff; color:var(--ink-soft); font-size:24px; font-weight:700;
+  }
+  .loadplan-empty-hint{ font-size:12px; color:var(--ink-soft); }
+  .confirm-del-row{
+    position:absolute; inset:0; background:rgba(247,241,226,0.97); border-radius:8px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; padding:8px;
+  }
+  .confirm-del-row .q{ font-size:12px; color:var(--ink-soft); text-align:center; }
+  .confirm-del-row .buttons{ display:flex; gap:8px; }
+  .confirm-del-row button{ border:1.5px solid var(--ink); border-radius:6px; padding:5px 10px; font-size:12px; background:#fff; font-weight:600; }
+  .confirm-del-row .yes{ background:var(--stamp-red); color:#fff; border-color:var(--ink); }
+
+  .empty-state{ text-align:center; padding:34px 14px; color:var(--ink-soft); font-size:13.5px; border:2px dashed var(--line); border-radius:10px; margin-top:14px; }
+
+  /* PDF export */
+  .pdf-section{ margin-top:22px; }
+  .pdf-btn{
+    width:100%; display:flex; align-items:center; justify-content:center; gap:10px;
+    background:var(--stamp-green); color:#fff; border:2px solid var(--ink); border-radius:10px; padding:14px;
+    font-family:'Oswald',sans-serif; font-size:15px; font-weight:600; letter-spacing:0.4px; text-transform:uppercase;
+    box-shadow:0 3px 0 rgba(0,0,0,0.25);
+  }
+  .pdf-btn:active{ transform:translateY(3px); box-shadow:none; }
+  .pdf-btn svg{ width:20px; height:20px; }
+  .pdf-btn:disabled{ opacity:0.55; }
+  .pdf-hint{ font-size:11.5px; color:var(--ink-soft); text-align:center; margin-top:6px; }
+
+  /* Summary footer */
+  .summary-bar{
+    position:sticky; bottom:0; margin-top:18px; background:var(--ink); color:var(--kraft);
+    border-radius:12px; padding:14px 18px; display:flex; justify-content:space-between; align-items:center;
+    box-shadow:0 -4px 12px rgba(0,0,0,0.15);
+  }
+  .summary-bar .s-item{ text-align:center; }
+  .summary-bar .s-num{ font-family:'JetBrains Mono',monospace; font-size:22px; font-weight:700; }
+  .summary-bar .s-lbl{ font-size:10.5px; opacity:0.75; letter-spacing:0.5px; }
+  .summary-bar .divider{ width:1px; height:30px; background:rgba(255,255,255,0.2); }
+
+  .tab-bar{ display:flex; gap:6px; margin:4px 0 16px; }
+  .tab-btn{
+    flex:1; border:2px solid var(--ink); border-radius:8px; padding:8px 3px;
+    background:var(--card); font-family:'Oswald',sans-serif; font-size:11.5px; font-weight:600;
+    letter-spacing:0.2px; text-transform:uppercase; color:var(--ink-soft); white-space:nowrap;
+  }
+  .tab-btn.active{ background:var(--ink); color:var(--kraft); }
+
+  /* Archive view */
+  .archive-search{
+    width:100%; font-family:'JetBrains Mono',monospace; font-size:15px;
+    padding:11px 12px; border:2px solid var(--ink); border-radius:8px;
+    background:#fff; color:var(--ink); margin-bottom:14px;
+  }
+  .archive-count{ font-size:12px; color:var(--ink-soft); margin:-6px 0 12px 2px; }
+  .archive-card{
+    background:var(--card); border:2px solid var(--ink); border-radius:10px;
+    padding:12px; margin-bottom:10px; box-shadow:var(--shadow); position:relative;
+  }
+  .archive-top{ display:flex; gap:10px; }
+  .archive-thumb{
+    width:52px; height:52px; border-radius:7px; object-fit:cover; flex-shrink:0;
+    border:1.5px solid var(--line); background:#fff;
+  }
+  .archive-thumb-placeholder{
+    width:52px; height:52px; border-radius:7px; flex-shrink:0;
+    border:1.5px solid var(--line); background:#fff; display:flex; align-items:center; justify-content:center;
+  }
+  .archive-thumb-placeholder svg{ width:22px; height:22px; color:var(--ink-soft); }
+  .archive-info{ min-width:0; flex:1; }
+  .archive-num{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:15px; }
+  .archive-meta{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
+  .archive-sub{ font-size:11.5px; color:var(--ink-soft); margin-top:2px; line-height:1.5; }
+  .archive-actions{ display:flex; gap:8px; margin-top:10px; }
+  .archive-actions .btn{ flex:1; padding:8px; font-size:12.5px; }
+  .archive-actions .del-icon-btn{
+    border:2px solid var(--ink); border-radius:8px; background:var(--card); width:38px; flex:none;
+    color:var(--ink-soft); font-size:15px;
+  }
+
+  /* About view */
+  .about-card{
+    background:var(--card); border:2px solid var(--ink); border-radius:10px; box-shadow:var(--shadow);
+    padding:26px 22px; margin-top:8px; text-align:center;
+  }
+  .about-card .brand-stamp{ margin-bottom:6px; }
+  .about-card .app-name{ font-family:'Oswald',sans-serif; font-weight:700; font-size:20px; letter-spacing:0.5px; margin:14px 0 4px; }
+  .about-card .app-tag{ font-size:12.5px; color:var(--ink-soft); margin-bottom:22px; }
+  .about-card .dev-block{ border-top:1.5px dashed var(--line); padding-top:18px; margin-top:6px; }
+  .about-card .dev-label{ font-size:11px; color:var(--ink-soft); letter-spacing:1px; text-transform:uppercase; margin-bottom:6px; }
+  .about-card .dev-name{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:17px; }
+  .about-card .dev-role{ font-size:13.5px; color:var(--ink-soft); margin-top:4px; }
+  .about-card .dev-org{ font-size:13.5px; font-weight:600; margin-top:2px; }
+
+  .toast{
+    position:fixed; left:50%; bottom:100px; transform:translateX(-50%);
+    background:var(--ink); color:var(--kraft); padding:10px 18px; border-radius:20px;
+    font-size:13px; opacity:0; pointer-events:none; transition:opacity 0.25s; z-index:50; white-space:nowrap; max-width:88%; text-align:center;
+  }
+  .toast.show{ opacity:1; }
+
+  /* Hidden PDF sheet template */
+  #pdfSheet{
+    position:fixed; left:-9999px; top:0; width:760px; background:#fff; color:#1a1a1a;
+    font-family:'Noto Sans Bengali', sans-serif; padding:36px;
+  }
+  #pdfSheet .ps-title{ font-size:26px; font-weight:800; text-align:center; margin-bottom:4px; }
+  #pdfSheet .ps-sub{ font-size:13px; text-align:center; color:#555; margin-bottom:22px; }
+  #pdfSheet .ps-info{ display:grid; grid-template-columns:1fr 1fr; gap:10px 24px; border:1.5px solid #333; border-radius:8px; padding:16px 20px; margin-bottom:24px; }
+  #pdfSheet .ps-info div{ font-size:14px; }
+  #pdfSheet .ps-info .k{ color:#666; font-size:11.5px; display:block; }
+  #pdfSheet .ps-info .v{ font-weight:700; font-size:16px; }
+  #pdfSheet table{ width:100%; border-collapse:collapse; margin-top:6px; }
+  #pdfSheet th, #pdfSheet td{ border:1px solid #999; padding:8px 12px; font-size:14px; text-align:center; }
+  #pdfSheet th{ background:#EDE2CC; font-weight:700; }
+  #pdfSheet tr.total-row td{ font-weight:800; background:#F7F1E2; font-size:15px; }
+  #pdfSheet .ps-footer{ margin-top:20px; font-size:11px; color:#888; text-align:center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand-stamp">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg>
+      <span class="brand-title">কার্টুন টালি</span>
+    </div>
+    <div class="brand-sub">ছবি তুলুন · স্ট্যাক গুনুন · টালি রাখুন</div>
+  </header>
+
+  <div class="tab-bar">
+    <button class="tab-btn" id="tabTallyBtn" data-tab="tally">টালি</button>
+    <button class="tab-btn" id="tabArchiveBtn" data-tab="archive">আর্কাইভ</button>
+    <button class="tab-btn" id="tabSettingsBtn" data-tab="settings">সেটিংস</button>
+    <button class="tab-btn" id="tabAboutBtn" data-tab="about">সম্পর্কে</button>
+  </div>
+
+  <div id="mainView">
+
+  <div class="doc-card" id="docCard"></div>
+
+  <div class="loadplan-card">
+    <div class="loadplan-head"><span class="label">কন্টেইনার লোড প্ল্যান</span></div>
+    <div id="loadPlanArea"></div>
+  </div>
+
+  <button class="add-stack-btn" id="addStackBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+    নতুন স্ট্যাকের ছবি তুলুন
+  </button>
+  <input type="file" id="fileFallbackInput" accept="image/*" capture="environment">
+
+  <div id="cameraArea"></div>
+  <div id="capturePanel"></div>
+
+  <div class="section-title">
+    <span>স্ট্যাক তালিকা</span>
+    <span id="stackCountLbl"></span>
+  </div>
+  <div id="stackListArea"></div>
+
+  <div class="pdf-section" id="pdfSection"></div>
+
+  <div class="summary-bar" id="summaryBar"></div>
+
+  </div>
+
+  <div id="archiveView" style="display:none;">
+    <input type="text" class="archive-search" id="archiveSearchInput" placeholder="কন্টেইনার নম্বর দিয়ে সার্চ করুন">
+    <div class="archive-count" id="archiveCountLbl"></div>
+    <div id="archiveListArea"></div>
+  </div>
+
+  <div id="settingsView" style="display:none;">
+    <div class="doc-card">
+      <div class="doc-card-head"><span class="label">AI কার্টুন-গণনা সেটআপ</span></div>
+      <div class="doc-form" style="margin-top:4px;">
+        <div class="field">
+          <label>GOOGLE GEMINI API KEY</label>
+          <input id="apiKeyInput" type="password" placeholder="AIza..." autocomplete="off">
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary btn-block" id="saveApiKeyBtn">সংরক্ষণ করুন</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="aboutView" style="display:none;">
+    <div class="about-card">
+      <div class="brand-stamp">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg>
+        <span class="brand-title">কার্টুন টালি</span>
+      </div>
+      <div class="app-name">Tally Helper</div>
+      <div class="app-tag">কার্টুন স্ট্যাক গোনা ও টালি রাখার সহায়ক অ্যাপ</div>
+      <div class="dev-block">
+        <div class="dev-label">Developed by</div>
+        <div class="dev-name">TAREQUL ISLAM</div>
+        <div class="dev-role">Jr. Officer</div>
+        <div class="dev-org">KDS Logistics Ltd.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="pdfSheet"></div>
+<div id="photoModalArea"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const state = {
+    containerNo: '', dcCode: '', mloCode: '', tallymanName: '',
+    stacks: [],
+    editingDoc: false,
+    pendingImage: null,
+    pendingCount: null,
+    pendingConfidence: null,
+    pendingMethod: null,
+    loadingCount: false,
+    errorMsg: null,
+    cameraOpen: false,
+    cameraError: null,
+    torchSupported: false,
+    torchOn: false,
+    confirmDeleteNum: null,
+    generatingPdf: false,
+    previewStackNum: null,
+    captureMode: 'stack',
+    loadPlanImages: []
+  };
+  let mediaStream = null;
+  let videoTrack = null;
+
+  const el = {
+    doc: document.getElementById('docCard'),
+    loadPlanArea: document.getElementById('loadPlanArea'),
+    cameraArea: document.getElementById('cameraArea'),
+    capture: document.getElementById('capturePanel'),
+    stackList: document.getElementById('stackListArea'),
+    stackCountLbl: document.getElementById('stackCountLbl'),
+    summary: document.getElementById('summaryBar'),
+    pdfSection: document.getElementById('pdfSection'),
+    addBtn: document.getElementById('addStackBtn'),
+    fileFallback: document.getElementById('fileFallbackInput'),
+    toast: document.getElementById('toast'),
+    pdfSheet: document.getElementById('pdfSheet'),
+    photoModalArea: document.getElementById('photoModalArea'),
+    archiveSearch: document.getElementById('archiveSearchInput'),
+    archiveCountLbl: document.getElementById('archiveCountLbl'),
+    archiveList: document.getElementById('archiveListArea')
+  };
+
+  function showToast(msg){
+    el.toast.textContent = msg;
+    el.toast.classList.add('show');
+    setTimeout(()=> el.toast.classList.remove('show'), 2000);
+  }
+
+  function escapeHtml(s){
+    return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function storageKey(containerNo){ return 'container:' + containerNo.trim().toUpperCase(); }
+  const CONTAINER_PREFIX = 'container:';
+
+  async function saveState(){
+    if(!state.containerNo.trim()) return;
+    try{
+      localStorage.setItem(storageKey(state.containerNo), JSON.stringify({
+        containerNo: state.containerNo, dcCode: state.dcCode, mloCode: state.mloCode,
+        tallymanName: state.tallymanName, stacks: state.stacks,
+        loadPlanImages: state.loadPlanImages, savedAt: Date.now()
+      }));
+    }catch(e){
+      console.error('save failed', e);
+      showToast('সেইভ করতে সমস্যা হয়েছে — ফোনের স্টোরেজ পূর্ণ হয়ে থাকতে পারে');
+    }
+  }
+
+  async function loadState(containerNo){
+    try{
+      const raw = localStorage.getItem(storageKey(containerNo));
+      if(raw){
+        const data = JSON.parse(raw);
+        state.dcCode = data.dcCode || '';
+        state.mloCode = data.mloCode || '';
+        state.tallymanName = data.tallymanName || '';
+        state.stacks = data.stacks || [];
+        state.loadPlanImages = data.loadPlanImages || [];
+        return true;
+      }
+    }catch(e){ /* not found */ }
+    return false;
+  }
+
+  function getAllContainers(){
+    const list = [];
+    for(let i = 0; i < localStorage.length; i++){
+      const key = localStorage.key(i);
+      if(key && key.indexOf(CONTAINER_PREFIX) === 0){
+        try{
+          const data = JSON.parse(localStorage.getItem(key));
+          if(data && data.containerNo){ list.push(data); }
+        }catch(e){ /* skip corrupted entry */ }
+      }
+    }
+    list.sort((a,b) => (b.savedAt || 0) - (a.savedAt || 0));
+    return list;
+  }
+
+  function deleteContainerRecord(containerNo){
+    try{ localStorage.removeItem(storageKey(containerNo)); }catch(e){ console.error(e); }
+  }
+
+  function loadApiKey(){
+    try{ return localStorage.getItem('tally-helper:gemini-api-key') || ''; }catch(e){ return ''; }
+  }
+  function saveApiKey(key){
+    try{ localStorage.setItem('tally-helper:gemini-api-key', key); }catch(e){ console.error('api key save failed', e); }
+  }
+
+  // ---------- Document card ----------
+  function renderDoc(){
+    if(state.editingDoc){
+      el.doc.innerHTML = `
+        <div class="doc-form">
+          <div class="field">
+            <label>কন্টেইনার নম্বর</label>
+            <input id="fContainer" type="text" placeholder="যেমন: MSKU1234567" value="${escapeHtml(state.containerNo)}" autocapitalize="characters" maxlength="11">
+            <div id="containerFieldError" style="display:none; color:var(--stamp-red); font-size:11.5px; margin-top:4px; font-family:'Noto Sans Bengali',sans-serif;"></div>
+          </div>
+          <div class="field">
+            <label>DC CODE</label>
+            <input id="fDc" type="text" placeholder="DC কোড লিখুন" value="${escapeHtml(state.dcCode)}">
+          </div>
+          <div class="field">
+            <label>MLO CODE</label>
+            <input id="fMlo" type="text" placeholder="MLO কোড লিখুন" value="${escapeHtml(state.mloCode)}">
+          </div>
+          <div class="field">
+            <label>টালিম্যানের নাম</label>
+            <input id="fTallyman" type="text" placeholder="নাম লিখুন" value="${escapeHtml(state.tallymanName)}">
+          </div>
+          <div class="actions">
+            <button class="btn btn-primary btn-block" id="saveDocBtn">সংরক্ষণ করুন</button>
+            ${state.containerNo ? '<button class="btn btn-ghost" id="cancelDocBtn">বাতিল</button>' : ''}
+          </div>
+        </div>`;
+      document.getElementById('saveDocBtn').onclick = onSaveDoc;
+      if(document.getElementById('cancelDocBtn')){
+        document.getElementById('cancelDocBtn').onclick = ()=>{ state.editingDoc = false; renderDoc(); };
+      }
+    } else if(!state.containerNo){
+      el.doc.innerHTML = `
+        <div class="doc-card-head"><span class="label">কন্টেইনার তথ্য</span></div>
+        <div class="doc-empty">এখনো কন্টেইনার নম্বর, DC/MLO কোড ও টালিম্যানের নাম দেওয়া হয়নি</div>
+        <button class="btn btn-primary btn-block" id="fillDocBtn" style="margin-top:6px;">তথ্য দিন</button>`;
+      document.getElementById('fillDocBtn').onclick = ()=>{ state.editingDoc = true; renderDoc(); };
+    } else {
+      el.doc.innerHTML = `
+        <div class="doc-card-head">
+          <span class="label">কন্টেইনার তথ্য</span>
+          <button class="edit-btn" id="editDocBtn">পরিবর্তন</button>
+        </div>
+        <div class="doc-grid">
+          <div class="doc-field full"><span class="k">কন্টেইনার নম্বর</span><span class="v">${escapeHtml(state.containerNo)}</span></div>
+          <div class="doc-field"><span class="k">DC CODE</span><span class="v">${escapeHtml(state.dcCode) || '—'}</span></div>
+          <div class="doc-field"><span class="k">MLO CODE</span><span class="v">${escapeHtml(state.mloCode) || '—'}</span></div>
+          <div class="doc-field full"><span class="k">টালিম্যান</span><span class="v">${escapeHtml(state.tallymanName) || '—'}</span></div>
+        </div>`;
+      document.getElementById('editDocBtn').onclick = ()=>{ state.editingDoc = true; renderDoc(); };
+    }
+  }
+
+  async function onSaveDoc(){
+    const newContainer = document.getElementById('fContainer').value.trim();
+    const containerErrEl = document.getElementById('containerFieldError');
+    if(!newContainer){ showToast('কন্টেইনার নম্বর দিন'); return; }
+    const normalized = newContainer.toUpperCase();
+    if(!/^[A-Z]{4}[0-9]{7}$/.test(normalized)){
+      containerErrEl.textContent = 'কন্টেইনার নম্বর ভুল — ৪টা অক্ষর ও ৭টা সংখ্যা মিলিয়ে মোট ১১ ডিজিট হতে হবে (যেমন: MSKU1234567)';
+      containerErrEl.style.display = 'block';
+      showToast('কন্টেইনার নম্বর সঠিক ফরম্যাটে দিন');
+      return;
+    }
+    containerErrEl.style.display = 'none';
+    const typedDc = document.getElementById('fDc').value.trim();
+    const typedMlo = document.getElementById('fMlo').value.trim();
+    const typedTallyman = document.getElementById('fTallyman').value.trim();
+    const containerChanged = newContainer.toUpperCase() !== state.containerNo.toUpperCase();
+
+    if(containerChanged){
+      state.containerNo = newContainer;
+      const existed = await loadState(newContainer);
+      if(!existed){
+        state.stacks = [];
+        state.loadPlanImages = [];
+        state.dcCode = typedDc; state.mloCode = typedMlo; state.tallymanName = typedTallyman;
+      } else {
+        // existing container loaded; allow overriding fields the user just edited
+        state.dcCode = typedDc || state.dcCode;
+        state.mloCode = typedMlo || state.mloCode;
+        state.tallymanName = typedTallyman || state.tallymanName;
+      }
+    } else {
+      state.containerNo = newContainer;
+      state.dcCode = typedDc; state.mloCode = typedMlo; state.tallymanName = typedTallyman;
+    }
+    state.editingDoc = false;
+    renderDoc(); renderStacks(); renderSummary(); renderPdfSection(); renderLoadPlan();
+    showToast('কন্টেইনার তথ্য সংরক্ষিত হয়েছে');
+    saveState();
+  }
+
+  // ---------- Camera ----------
+  el.addBtn.onclick = async ()=>{
+    if(!state.containerNo.trim()){
+      showToast('আগে কন্টেইনার নম্বর দিন');
+      state.editingDoc = true; renderDoc();
+      window.scrollTo({top:0, behavior:'smooth'});
+      return;
+    }
+    state.captureMode = 'stack';
+    await openCamera();
+  };
+
+  async function openCamera(){
+    state.cameraError = null;
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      el.fileFallback.value = '';
+      el.fileFallback.click();
+      return;
+    }
+    try{
+      mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } },
+        audio: false
+      });
+      videoTrack = mediaStream.getVideoTracks()[0];
+      const caps = (videoTrack.getCapabilities && videoTrack.getCapabilities()) || {};
+      state.torchSupported = !!caps.torch;
+      state.torchOn = false;
+      state.cameraOpen = true;
+      renderCamera();
+      const videoEl = document.getElementById('cameraVideo');
+      if(videoEl){ videoEl.srcObject = mediaStream; }
+    }catch(err){
+      console.error('camera error', err);
+      el.fileFallback.value = '';
+      el.fileFallback.click();
+    }
+  }
+
+  function closeCamera(){
+    if(mediaStream){
+      mediaStream.getTracks().forEach(t => t.stop());
+    }
+    mediaStream = null; videoTrack = null;
+    state.cameraOpen = false; state.torchSupported = false; state.torchOn = false;
+    renderCamera();
+  }
+
+  async function toggleTorch(){
+    if(!videoTrack || !state.torchSupported) return;
+    const target = !state.torchOn;
+    try{
+      await videoTrack.applyConstraints({ advanced: [{ torch: target }] });
+      state.torchOn = target;
+      const btn = document.getElementById('torchBtn');
+      if(btn) btn.classList.toggle('active', state.torchOn);
+    }catch(err){
+      console.error('torch error', err);
+      showToast('এই ফোনে ফ্ল্যাশ নিয়ন্ত্রণ সাপোর্ট করছে না');
+    }
+  }
+
+  function compressDataUrl(dataUrl, maxWidth, quality){
+    return new Promise((resolve)=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let w = img.width, h = img.height;
+        if(w > maxWidth){ h = Math.round(h * maxWidth / w); w = maxWidth; }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = ()=> resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  }
+
+  function capturePhoto(){
+    const videoEl = document.getElementById('cameraVideo');
+    if(!videoEl || !videoEl.videoWidth) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = videoEl.videoWidth;
+    canvas.height = videoEl.videoHeight;
+    canvas.getContext('2d').drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+    const rawDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    const mode = state.captureMode;
+    closeCamera();
+    if(mode === 'loadplan'){
+      compressDataUrl(rawDataUrl, 1400, 0.75).then(dataUrl => addLoadPlanImage(dataUrl));
+    } else {
+      compressDataUrl(rawDataUrl, 1000, 0.72).then(dataUrl=>{
+        const base64 = dataUrl.split(',')[1];
+        handleNewImage(dataUrl, base64, 'image/jpeg');
+      });
+    }
+  }
+
+  function renderCamera(){
+    if(!state.cameraOpen){ el.cameraArea.innerHTML = ''; return; }
+    el.cameraArea.innerHTML = `
+      <div class="camera-panel">
+        <div class="camera-video-wrap">
+          <video id="cameraVideo" autoplay playsinline muted></video>
+          <div class="camera-topbar">
+            ${state.torchSupported ? `<button class="cam-icon-btn ${state.torchOn ? 'active' : ''}" id="torchBtn" title="ফ্ল্যাশ">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 21h-1l1-7H7.5c-.58 0-.57-.32-.38-.66.19-.34.05-.08.07-.12C8.48 10.94 10.42 7.54 13 3h1l-1 7h3.5c.49 0 .56.33.47.51l-.07.15C12.96 17.55 11 21 11 21z"/></svg>
+            </button>` : ''}
+            <button class="cam-icon-btn" id="camCloseBtn" title="বন্ধ করুন">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="camera-controls">
+          <button class="cam-cancel-btn" id="camCancelBtn2">বাতিল</button>
+          <button class="shutter-btn" id="shutterBtn" title="ছবি তুলুন"></button>
+          <span style="width:48px;"></span>
+        </div>
+      </div>`;
+    const videoEl = document.getElementById('cameraVideo');
+    if(videoEl && mediaStream){ videoEl.srcObject = mediaStream; }
+    document.getElementById('shutterBtn').onclick = capturePhoto;
+    document.getElementById('camCloseBtn').onclick = closeCamera;
+    document.getElementById('camCancelBtn2').onclick = closeCamera;
+    if(state.torchSupported){ document.getElementById('torchBtn').onclick = toggleTorch; }
+  }
+
+  el.fileFallback.onchange = (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const mode = state.captureMode;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      if(mode === 'loadplan'){
+        compressDataUrl(reader.result, 1400, 0.75).then(dataUrl => addLoadPlanImage(dataUrl));
+      } else {
+        compressDataUrl(reader.result, 1000, 0.72).then(dataUrl=>{
+          const base64 = dataUrl.split(',')[1];
+          handleNewImage(dataUrl, base64, 'image/jpeg');
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const BARCODE_FORMATS = ['code_128','code_39','code_93','codabar','ean_13','ean_8','itf','upc_a','upc_e','qr_code','data_matrix','pdf417','aztec'];
+
+  async function detectBarcodeCount(dataUrl){
+    if(!window.__BarcodeDetector) return null;
+    try{
+      const img = new Image();
+      await new Promise((resolve, reject)=>{
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = dataUrl;
+      });
+      const detector = new window.__BarcodeDetector({ formats: BARCODE_FORMATS });
+      const results = await detector.detect(img);
+      return results.length;
+    }catch(err){
+      console.error('barcode detect error', err);
+      return null;
+    }
+  }
+
+  // Detects roughly-rectangular white/near-white blobs (sticker labels) via
+  // simple brightness+saturation thresholding + connected-component labeling.
+  // Free, offline, no AI needed — a fallback for when barcodes are too small
+  // or blurry to decode but the white sticker shape is still visible.
+  async function detectStickerCount(dataUrl){
+    try{
+      const img = new Image();
+      await new Promise((resolve, reject)=>{
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = dataUrl;
+      });
+      const maxDim = 700;
+      let w = img.width, h = img.height;
+      const scale = Math.min(1, maxDim / Math.max(w, h));
+      w = Math.max(1, Math.round(w * scale));
+      h = Math.max(1, Math.round(h * scale));
+
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(img, 0, 0, w, h);
+      const data = ctx.getImageData(0, 0, w, h).data;
+
+      const total = w * h;
+      const mask = new Uint8Array(total);
+      for(let i = 0, p = 0; i < data.length; i += 4, p++){
+        const r = data[i], g = data[i+1], b = data[i+2];
+        const brightness = (r + g + b) / 3;
+        const sat = Math.max(r,g,b) - Math.min(r,g,b);
+        if(brightness > 172 && sat < 38){ mask[p] = 1; }
+      }
+
+      const visited = new Uint8Array(total);
+      const stack = new Int32Array(total);
+      const minArea = Math.max(40, Math.round(total * 0.0018));
+      const maxArea = Math.round(total * 0.12);
+      let count = 0;
+
+      for(let idx = 0; idx < total; idx++){
+        if(!mask[idx] || visited[idx]) continue;
+        let sp = 0;
+        stack[sp++] = idx;
+        visited[idx] = 1;
+        let minX = w, maxX = 0, minY = h, maxY = 0, area = 0;
+        while(sp > 0){
+          const cur = stack[--sp];
+          const cx = cur % w, cy = (cur / w) | 0;
+          area++;
+          if(cx < minX) minX = cx; if(cx > maxX) maxX = cx;
+          if(cy < minY) minY = cy; if(cy > maxY) maxY = cy;
+          if(cx > 0){ const n = cur - 1; if(mask[n] && !visited[n]){ visited[n]=1; stack[sp++]=n; } }
+          if(cx < w-1){ const n = cur + 1; if(mask[n] && !visited[n]){ visited[n]=1; stack[sp++]=n; } }
+          if(cy > 0){ const n = cur - w; if(mask[n] && !visited[n]){ visited[n]=1; stack[sp++]=n; } }
+          if(cy < h-1){ const n = cur + w; if(mask[n] && !visited[n]){ visited[n]=1; stack[sp++]=n; } }
+        }
+        if(area < minArea || area > maxArea) continue;
+        const bw = maxX - minX + 1, bh = maxY - minY + 1;
+        const fillRatio = area / (bw * bh);
+        const aspect = bw / bh;
+        if(fillRatio > 0.55 && aspect > 0.25 && aspect < 4){ count++; }
+      }
+      return count;
+    }catch(err){
+      console.error('sticker detect error', err);
+      return null;
+    }
+  }
+
+  async function handleNewImage(dataUrl, base64, mediaType){
+    state.pendingImage = { dataUrl, mediaType, base64 };
+    state.pendingCount = null; state.pendingConfidence = null; state.errorMsg = null; state.pendingMethod = null;
+    state.loadingCount = true;
+    renderCapture();
+    window.scrollTo({top: el.capture.offsetTop - 10, behavior:'smooth'});
+
+    const barcodeCount = await detectBarcodeCount(dataUrl);
+    if(barcodeCount && barcodeCount > 0){
+      state.pendingCount = barcodeCount;
+      state.pendingConfidence = 'high';
+      state.pendingMethod = 'barcode';
+      state.loadingCount = false;
+      renderCapture();
+      return;
+    }
+
+    const stickerCount = await detectStickerCount(dataUrl);
+    if(stickerCount && stickerCount > 0){
+      state.pendingCount = stickerCount;
+      state.pendingConfidence = 'medium';
+      state.pendingMethod = 'sticker';
+      state.loadingCount = false;
+      renderCapture();
+      return;
+    }
+
+    await countCartons();
+  }
+
+  async function countCartons(){
+    const apiKey = loadApiKey();
+    if(!apiKey){
+      state.errorMsg = 'বারকোড শনাক্ত করা যায়নি, আর AI গণনার জন্য "সেটিংস" ট্যাবে ফ্রি Gemini API key দিন। এখনই নিচে সংখ্যা ম্যানুয়ালি বসাতে পারেন।';
+      state.pendingCount = 0;
+      state.pendingConfidence = null;
+      state.pendingMethod = 'manual';
+      state.loadingCount = false;
+      renderCapture();
+      return;
+    }
+    try{
+      const controller = new AbortController();
+      const timeoutId = setTimeout(()=> controller.abort(), 15000);
+      let response;
+      try{
+        response = await fetch(
+          "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-goog-api-key": apiKey
+            },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  { inline_data: { mime_type: state.pendingImage.mediaType, data: state.pendingImage.base64 } },
+                  { text: "এই ছবিতে একটি স্ট্যাকে সাজানো কার্টুন/বক্স আছে। মোট কতগুলো কার্টুন আছে সাবধানে গুনে বের করো (স্তর/লেয়ার ধরে ধরে গুনতে পারো)। নিচের JSON ফরম্যাটে উত্তর দাও: {\"count\": <number>, \"confidence\": \"high\"|\"medium\"|\"low\"}. যদি ছবিতে কার্টুন স্ট্যাক স্পষ্ট বোঝা না যায় তাহলে confidence \"low\" দাও এবং তোমার সেরা অনুমান count এ দাও।" }
+                ]
+              }],
+              generationConfig: {
+                responseMimeType: "application/json",
+                temperature: 0.2
+              }
+            }),
+            signal: controller.signal
+          }
+        );
+      }finally{
+        clearTimeout(timeoutId);
+      }
+      if(!response.ok){
+        const errBody = await response.text().catch(()=> '');
+        console.error('API error', response.status, errBody);
+        const err = new Error('api error ' + response.status);
+        err.status = response.status;
+        throw err;
+      }
+      const data = await response.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if(!text) throw new Error('no response');
+      const clean = text.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(clean);
+      state.pendingCount = Math.max(0, Math.round(parsed.count));
+      state.pendingConfidence = ['high','medium','low'].includes(parsed.confidence) ? parsed.confidence : 'medium';
+      state.pendingMethod = 'ai';
+    }catch(err){
+      console.error(err);
+      const prefix = 'বারকোড বা স্টিকার শনাক্ত হয়নি, আর ';
+      if(err.name === 'AbortError'){
+        state.errorMsg = prefix + 'AI গণনায় সময় বেশি লাগছে (ইন্টারনেট ধীর হতে পারে)। নিচে ম্যানুয়ালি সংখ্যা বসিয়ে দিন, বা আবার চেষ্টা করুন।';
+      } else if(err.status === 401 || err.status === 403){
+        state.errorMsg = prefix + 'API key ভুল বা অকার্যকর। "সেটিংস" ট্যাবে গিয়ে key যাচাই করুন।';
+      } else if(err.status === 429){
+        state.errorMsg = prefix + 'আজকের ফ্রি লিমিট শেষ হয়ে গেছে। কিছুক্ষণ পর বা কাল আবার চেষ্টা করুন — এখন ম্যানুয়ালি বসাতে পারেন।';
+      } else if(err.status >= 500){
+        state.errorMsg = prefix + 'Google-এর সার্ভারে সাময়িক সমস্যা হচ্ছে। একটু পর আবার চেষ্টা করুন।';
+      } else if(err instanceof TypeError){
+        state.errorMsg = prefix + 'ইন্টারনেট সংযোগ পাওয়া যায়নি। সংযোগ চেক করে আবার চেষ্টা করুন।';
+      } else {
+        state.errorMsg = prefix + 'অটো-গণনা করা যায়নি। নিচে ম্যানুয়ালি সংখ্যা বসিয়ে দিন।';
+      }
+      state.pendingCount = 0;
+      state.pendingConfidence = null;
+      state.pendingMethod = 'manual';
+    }finally{
+      state.loadingCount = false;
+      renderCapture();
+    }
+  }
+
+  function renderCapture(){
+    if(!state.pendingImage){ el.capture.innerHTML = ''; return; }
+    const nextStackNo = state.stacks.length + 1;
+    let body = `<div class="capture-img-wrap"><img src="${state.pendingImage.dataUrl}" alt="স্ট্যাকের ছবি"></div>`;
+
+    if(state.loadingCount){
+      body += `<div class="loading-row"><div class="spinner"></div> স্ট্যাক গোনা হচ্ছে (বারকোড → স্টিকার → AI)…</div>`;
+    } else {
+      if(state.errorMsg){
+        body += `<div class="error-box">${state.errorMsg}</div>`;
+      } else if(state.pendingMethod === 'barcode'){
+        body += `<div class="count-result"><span class="cr-label">📷 বারকোড শনাক্ত করে গণনা</span><span class="cr-badge conf-high">উচ্চ নির্ভুলতা</span></div>`;
+      } else if(state.pendingMethod === 'sticker'){
+        body += `<div class="count-result"><span class="cr-label">⬜ সাদা স্টিকার শনাক্ত করে গণনা</span><span class="cr-badge conf-medium">যাচাই করে নিন</span></div>`;
+      } else {
+        const confClass = state.pendingConfidence === 'high' ? 'conf-high' : state.pendingConfidence === 'low' ? 'conf-low' : 'conf-medium';
+        const confLbl = state.pendingConfidence === 'high' ? 'উচ্চ নির্ভুলতা' : state.pendingConfidence === 'low' ? 'কম নির্ভুলতা' : 'মাঝারি নির্ভুলতা';
+        body += `<div class="count-result"><span class="cr-label">এআই অনুমান</span><span class="cr-badge ${confClass}">${confLbl}</span></div>`;
+      }
+      body += `
+        <div class="count-input-row">
+          <div class="stepper">
+            <button id="decBtn" type="button">−</button>
+            <input id="countInput" type="number" inputmode="numeric" value="${state.pendingCount}">
+            <button id="incBtn" type="button">+</button>
+          </div>
+          <span class="hint">সংখ্যা ঠিক না হলে বদলে দিন</span>
+        </div>
+        <div class="panel-actions">
+          <button class="btn" id="cancelCaptureBtn">বাতিল</button>
+          <button class="btn btn-primary" id="confirmCaptureBtn">স্ট্যাক #${nextStackNo} হিসেবে যোগ করুন</button>
+        </div>`;
+    }
+
+    el.capture.innerHTML = `<div class="capture-panel"><h3>স্ট্যাক যাচাই করুন</h3>${body}</div>`;
+
+    if(!state.loadingCount){
+      document.getElementById('cancelCaptureBtn').onclick = ()=>{ state.pendingImage = null; renderCapture(); };
+      document.getElementById('confirmCaptureBtn').onclick = onConfirmStack;
+      const countInput = document.getElementById('countInput');
+      document.getElementById('decBtn').onclick = ()=>{ countInput.value = Math.max(0, parseInt(countInput.value||0) - 1); };
+      document.getElementById('incBtn').onclick = ()=>{ countInput.value = parseInt(countInput.value||0) + 1; };
+    }
+  }
+
+  function onConfirmStack(){
+    const countInput = document.getElementById('countInput');
+    const finalCount = Math.max(0, parseInt(countInput.value || 0));
+    const stackNo = state.stacks.length + 1;
+    state.stacks.push({ number: stackNo, count: finalCount, thumb: state.pendingImage.dataUrl });
+    state.pendingImage = null;
+    renderCapture(); renderStacks(); renderSummary(); renderPdfSection();
+    showToast(`স্ট্যাক #${stackNo} যোগ হয়েছে — ${finalCount}টি কার্টুন`);
+    saveState();
+  }
+
+  // ---------- Stack list ----------
+  function renderStacks(){
+    el.stackCountLbl.textContent = state.stacks.length ? `${state.stacks.length}টি স্ট্যাক` : '';
+    if(!state.stacks.length){
+      el.stackList.innerHTML = `<div class="empty-state">এখনো কোনো স্ট্যাক যোগ করা হয়নি।<br>উপরের বাটনে ছবি তুলে শুরু করুন।</div>`;
+      return;
+    }
+    el.stackList.innerHTML = `<div class="stack-grid">` + state.stacks.map(s => `
+      <div class="stamp-card">
+        ${state.confirmDeleteNum === s.number ? `
+          <div class="confirm-del-row">
+            <div class="q">স্ট্যাক #${s.number} মুছে ফেলবেন?</div>
+            <div class="buttons">
+              <button class="yes" data-yesdel="${s.number}">হ্যাঁ, মুছুন</button>
+              <button data-nodel="${s.number}">না</button>
+            </div>
+          </div>` : ''}
+        <button class="del-btn" data-del="${s.number}" title="মুছুন">✕</button>
+        <div class="top-row">
+          <div class="num-badge">${s.number}</div>
+          <button class="photo-icon-btn" data-preview="${s.number}" title="ছবি দেখুন">
+            ${s.thumb ? `<img src="${s.thumb}" alt="স্ট্যাক ${s.number} ছবি">` : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>`}
+          </button>
+        </div>
+        <div class="count-num">${s.count}</div>
+        <div class="count-lbl">কার্টুন</div>
+      </div>
+    `).join('') + `</div>`;
+
+    el.stackList.querySelectorAll('[data-del]').forEach(btn=>{
+      btn.onclick = ()=>{ state.confirmDeleteNum = parseInt(btn.getAttribute('data-del')); renderStacks(); };
+    });
+    el.stackList.querySelectorAll('[data-preview]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const num = parseInt(btn.getAttribute('data-preview'));
+        const stack = state.stacks.find(s => s.number === num);
+        if(stack && stack.thumb){ state.previewStackNum = num; renderPhotoModal(); }
+        else { showToast('এই স্ট্যাকের ছবি পাওয়া যায়নি'); }
+      };
+    });
+    el.stackList.querySelectorAll('[data-nodel]').forEach(btn=>{
+      btn.onclick = ()=>{ state.confirmDeleteNum = null; renderStacks(); };
+    });
+    el.stackList.querySelectorAll('[data-yesdel]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const num = parseInt(btn.getAttribute('data-yesdel'));
+        state.stacks = state.stacks.filter(s => s.number !== num);
+        state.stacks.forEach((s,i)=> s.number = i+1);
+        state.confirmDeleteNum = null;
+        renderStacks(); renderSummary(); renderPdfSection();
+        showToast('স্ট্যাক মুছে ফেলা হয়েছে');
+        saveState();
+      };
+    });
+  }
+
+  // ---------- Photo preview modal ----------
+  function renderPhotoModal(){
+    if(state.previewStackNum === null){ el.photoModalArea.innerHTML = ''; return; }
+    const stack = state.stacks.find(s => s.number === state.previewStackNum);
+    if(!stack || !stack.thumb){ state.previewStackNum = null; el.photoModalArea.innerHTML = ''; return; }
+    el.photoModalArea.innerHTML = `
+      <div class="photo-modal" id="photoModalBackdrop">
+        <button class="pm-close" id="photoModalClose" title="বন্ধ করুন">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <img src="${stack.thumb}" alt="স্ট্যাক ${stack.number} ছবি">
+        <div class="pm-label">স্ট্যাক #${stack.number} — ${stack.count}টি কার্টুন</div>
+      </div>`;
+    document.getElementById('photoModalClose').onclick = ()=>{ state.previewStackNum = null; renderPhotoModal(); };
+    document.getElementById('photoModalBackdrop').onclick = (e)=>{
+      if(e.target.id === 'photoModalBackdrop'){ state.previewStackNum = null; renderPhotoModal(); }
+    };
+  }
+
+  function openImagePreview(src, label){
+    el.photoModalArea.innerHTML = `
+      <div class="photo-modal" id="genPhotoModalBackdrop">
+        <button class="pm-close" id="genPhotoModalClose" title="বন্ধ করুন">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <img src="${src}" alt="প্রিভিউ">
+        <div class="pm-label">${escapeHtml(label)}</div>
+      </div>`;
+    document.getElementById('genPhotoModalClose').onclick = ()=>{ el.photoModalArea.innerHTML = ''; };
+    document.getElementById('genPhotoModalBackdrop').onclick = (e)=>{
+      if(e.target.id === 'genPhotoModalBackdrop'){ el.photoModalArea.innerHTML = ''; }
+    };
+  }
+
+  // ---------- Load plan ----------
+  function renderLoadPlan(){
+    const images = state.loadPlanImages || [];
+    const thumbs = images.map((src, idx) => `
+      <div class="loadplan-thumb-wrap">
+        <img class="loadplan-thumb" src="${src}" alt="লোড প্ল্যান ${idx+1}" data-planview="${idx}">
+        <button class="loadplan-thumb-del" data-plandel="${idx}" title="মুছুন">✕</button>
+      </div>`).join('');
+    const addTile = `<button class="loadplan-add-tile" id="addLoadPlanBtn" title="যোগ করুন">+</button>`;
+    el.loadPlanArea.innerHTML = `
+      ${!images.length ? `<div class="loadplan-empty-hint">লোড প্ল্যানের ছবি তুলে/আপলোড করে যোগ করুন — এটা ফাইনাল PDF-এর শেষে যোগ হয়ে যাবে।</div>` : ''}
+      <div class="loadplan-row" style="${images.length ? 'margin-top:10px;' : 'margin-top:10px;'}">${thumbs}${addTile}</div>`;
+
+    document.getElementById('addLoadPlanBtn').onclick = ()=>{
+      if(!state.containerNo.trim()){
+        showToast('আগে কন্টেইনার নম্বর দিন');
+        state.editingDoc = true; renderDoc();
+        window.scrollTo({top:0, behavior:'smooth'});
+        return;
+      }
+      state.captureMode = 'loadplan';
+      openCamera();
+    };
+    el.loadPlanArea.querySelectorAll('[data-planview]').forEach(img=>{
+      img.onclick = ()=>{
+        const idx = parseInt(img.getAttribute('data-planview'));
+        openImagePreview(images[idx], `লোড প্ল্যান ${idx+1}/${images.length}`);
+      };
+    });
+    el.loadPlanArea.querySelectorAll('[data-plandel]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const idx = parseInt(btn.getAttribute('data-plandel'));
+        if(confirm('এই লোড প্ল্যানের ছবিটা মুছে ফেলবেন?')){
+          state.loadPlanImages.splice(idx, 1);
+          renderLoadPlan();
+          showToast('লোড প্ল্যানের ছবি মুছে ফেলা হয়েছে');
+          saveState();
+        }
+      };
+    });
+  }
+
+  function addLoadPlanImage(dataUrl){
+    if(!state.loadPlanImages) state.loadPlanImages = [];
+    state.loadPlanImages.push(dataUrl);
+    renderLoadPlan();
+    showToast('লোড প্ল্যানের ছবি যোগ হয়েছে');
+    saveState();
+  }
+
+  // ---------- PDF export ----------
+  function renderPdfSection(){
+    if(!state.containerNo || !state.stacks.length){ el.pdfSection.innerHTML = ''; return; }
+    el.pdfSection.innerHTML = `
+      <button class="pdf-btn" id="pdfBtn" ${state.generatingPdf ? 'disabled' : ''}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        ${state.generatingPdf ? 'PDF তৈরি হচ্ছে…' : 'কন্টেইনার শেষ — PDF সেইভ করুন'}
+      </button>
+      <div class="pdf-hint">ফাইলটি "Downloads/Tally Helper/${escapeHtml(state.containerNo.trim().toUpperCase())}.pdf" এ সেইভ হবে</div>`;
+    document.getElementById('pdfBtn').onclick = generatePdf;
+  }
+
+  function buildPdfSheetHtml(record){
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('bn-BD', { year:'numeric', month:'long', day:'numeric' });
+    const totalCartons = record.stacks.reduce((a,s)=> a + s.count, 0);
+    const rows = record.stacks.map(s => `<tr><td>${s.number}</td><td>${s.count}</td></tr>`).join('');
+    return `
+      <div class="ps-title">কার্টুন টালি শীট</div>
+      <div class="ps-sub">তারিখ: ${dateStr}</div>
+      <div class="ps-info">
+        <div><span class="k">কন্টেইনার নম্বর</span><span class="v">${escapeHtml(record.containerNo)}</span></div>
+        <div><span class="k">টালিম্যান</span><span class="v">${escapeHtml(record.tallymanName) || '—'}</span></div>
+        <div><span class="k">DC CODE</span><span class="v">${escapeHtml(record.dcCode) || '—'}</span></div>
+        <div><span class="k">MLO CODE</span><span class="v">${escapeHtml(record.mloCode) || '—'}</span></div>
+      </div>
+      <table>
+        <thead><tr><th>স্ট্যাক নং</th><th>কার্টুন সংখ্যা</th></tr></thead>
+        <tbody>
+          ${rows}
+          <tr class="total-row"><td>মোট (${record.stacks.length} স্ট্যাক)</td><td>${totalCartons}</td></tr>
+        </tbody>
+      </table>
+      <div class="ps-footer">কার্টুন টালি অ্যাপ দ্বারা তৈরি</div>`;
+  }
+
+  function getImageDimensions(dataUrl){
+    return new Promise((resolve)=>{
+      const img = new Image();
+      img.onload = ()=> resolve({ width: img.width, height: img.height });
+      img.onerror = ()=> resolve({ width: 1, height: 1 });
+      img.src = dataUrl;
+    });
+  }
+
+  async function exportPdfForRecord(record){
+    el.pdfSheet.innerHTML = buildPdfSheetHtml(record);
+    await new Promise(r => setTimeout(r, 60));
+    const canvas = await html2canvas(el.pdfSheet, { scale: 2, backgroundColor: '#ffffff' });
+    const imgData = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pageWidth = 210, pageHeight = 297, margin = 10;
+    const imgWidth = pageWidth - margin * 2;
+    const imgHeight = canvas.height * imgWidth / canvas.width;
+    const pageUsableHeight = pageHeight - margin * 2;
+    let heightLeft = imgHeight;
+    let position = margin;
+    pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+    heightLeft -= pageUsableHeight;
+    while(heightLeft > 0){
+      position = heightLeft - imgHeight + margin;
+      pdf.addPage();
+      pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+      heightLeft -= pageUsableHeight;
+    }
+
+    // Append container load plan photos as extra pages
+    if(record.loadPlanImages && record.loadPlanImages.length){
+      const maxW = pageWidth - margin * 2;
+      const maxH = pageHeight - margin * 2;
+      for(const planImg of record.loadPlanImages){
+        const dims = await getImageDimensions(planImg);
+        let w = maxW, h = (dims.height / dims.width) * w;
+        if(h > maxH){ h = maxH; w = (dims.width / dims.height) * h; }
+        const x = margin + (maxW - w) / 2;
+        const y = margin + (maxH - h) / 2;
+        pdf.addPage();
+        pdf.addImage(planImg, 'JPEG', x, y, w, h);
+      }
+    }
+
+    const filename = 'Tally Helper/' + record.containerNo.trim().toUpperCase() + '.pdf';
+    pdf.save(filename);
+    el.pdfSheet.innerHTML = '';
+    return filename;
+  }
+
+  async function generatePdf(){
+    if(!state.containerNo.trim() || !state.stacks.length) return;
+    if(!state.tallymanName.trim()){
+      showToast('টালিম্যানের নাম দিন');
+      state.editingDoc = true; renderDoc();
+      window.scrollTo({top:0, behavior:'smooth'});
+      return;
+    }
+    state.generatingPdf = true; renderPdfSection();
+    try{
+      const filename = await exportPdfForRecord({
+        containerNo: state.containerNo, dcCode: state.dcCode, mloCode: state.mloCode,
+        tallymanName: state.tallymanName, stacks: state.stacks, loadPlanImages: state.loadPlanImages
+      });
+      showToast('PDF সেইভ হয়েছে: ' + filename);
+    }catch(err){
+      console.error('pdf error', err);
+      showToast('PDF তৈরি করা যায়নি, আবার চেষ্টা করুন');
+    }finally{
+      state.generatingPdf = false; renderPdfSection();
+    }
+  }
+
+  // ---------- Summary ----------
+  function renderSummary(){
+    const totalStacks = state.stacks.length;
+    const totalCartons = state.stacks.reduce((a,s)=> a + s.count, 0);
+    if(!state.containerNo){ el.summary.innerHTML = ''; return; }
+    el.summary.innerHTML = `
+      <div class="s-item"><div class="s-num">${totalStacks}</div><div class="s-lbl">মোট স্ট্যাক</div></div>
+      <div class="divider"></div>
+      <div class="s-item"><div class="s-num">${totalCartons}</div><div class="s-lbl">মোট কার্টুন</div></div>
+      <div class="divider"></div>
+      <div class="s-item" style="text-align:right;">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600;">${escapeHtml(state.containerNo)}</div>
+        <div class="s-lbl">কন্টেইনার</div>
+      </div>`;
+  }
+
+  // ---------- Archive ----------
+  let archiveConfirmDelete = null;
+
+  function renderArchive(){
+    const query = (el.archiveSearch.value || '').trim().toUpperCase();
+    const all = getAllContainers();
+    const filtered = query ? all.filter(r => r.containerNo.toUpperCase().includes(query)) : all;
+
+    el.archiveCountLbl.textContent = all.length
+      ? `মোট ${all.length}টি কন্টেইনার সংরক্ষিত${query ? ` — ${filtered.length}টি মিলেছে` : ''}`
+      : '';
+
+    if(!all.length){
+      el.archiveList.innerHTML = `<div class="empty-state">এখনো কোনো কন্টেইনার সংরক্ষিত হয়নি।<br>টালি শেষ করলে এখানে চলে আসবে।</div>`;
+      return;
+    }
+    if(!filtered.length){
+      el.archiveList.innerHTML = `<div class="empty-state">"${escapeHtml(query)}" নম্বরে কিছু পাওয়া যায়নি।</div>`;
+      return;
+    }
+
+    el.archiveList.innerHTML = filtered.map(r => {
+      const totalCartons = (r.stacks || []).reduce((a,s)=> a + s.count, 0);
+      const dateStr = r.savedAt ? new Date(r.savedAt).toLocaleDateString('bn-BD', { year:'numeric', month:'short', day:'numeric' }) : '';
+      const thumb = (r.stacks && r.stacks[0] && r.stacks[0].thumb) ? r.stacks[0].thumb : null;
+      const key = escapeHtml(r.containerNo);
+      return `
+        <div class="archive-card">
+          ${archiveConfirmDelete === r.containerNo ? `
+            <div class="confirm-del-row">
+              <div class="q">"${key}" পুরোপুরি মুছে ফেলবেন?</div>
+              <div class="buttons">
+                <button class="yes" data-archyes="${key}">হ্যাঁ, মুছুন</button>
+                <button data-archno="${key}">না</button>
+              </div>
+            </div>` : ''}
+          <div class="archive-top">
+            ${thumb ? `<img class="archive-thumb" src="${thumb}" alt="${key}">` :
+              `<div class="archive-thumb-placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>`}
+            <div class="archive-info">
+              <div class="archive-num">${key}</div>
+              <div class="archive-meta">${dateStr ? dateStr + ' · ' : ''}${(r.stacks||[]).length} স্ট্যাক · ${totalCartons} কার্টুন</div>
+              <div class="archive-sub">DC: ${escapeHtml(r.dcCode) || '—'} · MLO: ${escapeHtml(r.mloCode) || '—'}${r.tallymanName ? ' · ' + escapeHtml(r.tallymanName) : ''}</div>
+            </div>
+          </div>
+          <div class="archive-actions">
+            <button class="btn" data-archopen="${key}">খুলুন</button>
+            <button class="btn btn-green" data-archpdf="${key}">PDF</button>
+            <button class="del-icon-btn" data-archdel="${key}" title="মুছুন">✕</button>
+          </div>
+        </div>`;
+    }).join('');
+
+    el.archiveList.querySelectorAll('[data-archopen]').forEach(btn=>{
+      btn.onclick = ()=> openArchivedContainer(btn.getAttribute('data-archopen'));
+    });
+    el.archiveList.querySelectorAll('[data-archpdf]').forEach(btn=>{
+      btn.onclick = ()=> exportArchivedPdf(btn.getAttribute('data-archpdf'), btn);
+    });
+    el.archiveList.querySelectorAll('[data-archdel]').forEach(btn=>{
+      btn.onclick = ()=>{ archiveConfirmDelete = btn.getAttribute('data-archdel'); renderArchive(); };
+    });
+    el.archiveList.querySelectorAll('[data-archno]').forEach(btn=>{
+      btn.onclick = ()=>{ archiveConfirmDelete = null; renderArchive(); };
+    });
+    el.archiveList.querySelectorAll('[data-archyes]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const num = btn.getAttribute('data-archyes');
+        deleteContainerRecord(num);
+        archiveConfirmDelete = null;
+        renderArchive();
+        showToast('কন্টেইনার মুছে ফেলা হয়েছে');
+      };
+    });
+  }
+
+  async function openArchivedContainer(containerNo){
+    state.containerNo = containerNo;
+    await loadState(containerNo);
+    state.editingDoc = false;
+    state.pendingImage = null;
+    renderDoc(); renderCapture(); renderStacks(); renderSummary(); renderPdfSection(); renderLoadPlan();
+    setTab('tally');
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  async function exportArchivedPdf(containerNo, btnEl){
+    const record = getAllContainers().find(r => r.containerNo.trim().toUpperCase() === containerNo.trim().toUpperCase());
+    if(!record || !record.stacks || !record.stacks.length){ showToast('এই কন্টেইনারে কোনো স্ট্যাক নেই'); return; }
+    const originalText = btnEl.textContent;
+    btnEl.disabled = true; btnEl.textContent = '…';
+    try{
+      const filename = await exportPdfForRecord(record);
+      showToast('PDF সেইভ হয়েছে: ' + filename);
+    }catch(err){
+      console.error('archive pdf error', err);
+      showToast('PDF তৈরি করা যায়নি, আবার চেষ্টা করুন');
+    }finally{
+      btnEl.disabled = false; btnEl.textContent = originalText;
+    }
+  }
+
+  el.archiveSearch.oninput = renderArchive;
+
+  // ---------- Tabs ----------
+  const tabTallyBtn = document.getElementById('tabTallyBtn');
+  const tabArchiveBtn = document.getElementById('tabArchiveBtn');
+  const tabSettingsBtn = document.getElementById('tabSettingsBtn');
+  const tabAboutBtn = document.getElementById('tabAboutBtn');
+  const mainView = document.getElementById('mainView');
+  const archiveView = document.getElementById('archiveView');
+  const settingsView = document.getElementById('settingsView');
+  const aboutView = document.getElementById('aboutView');
+  function setTab(tab){
+    mainView.style.display = tab === 'tally' ? 'block' : 'none';
+    archiveView.style.display = tab === 'archive' ? 'block' : 'none';
+    settingsView.style.display = tab === 'settings' ? 'block' : 'none';
+    aboutView.style.display = tab === 'about' ? 'block' : 'none';
+    tabTallyBtn.classList.toggle('active', tab === 'tally');
+    tabArchiveBtn.classList.toggle('active', tab === 'archive');
+    tabSettingsBtn.classList.toggle('active', tab === 'settings');
+    tabAboutBtn.classList.toggle('active', tab === 'about');
+    if(tab === 'archive'){ renderArchive(); }
+  }
+  tabTallyBtn.onclick = ()=> setTab('tally');
+  tabArchiveBtn.onclick = ()=> setTab('archive');
+  tabSettingsBtn.onclick = ()=> setTab('settings');
+  tabAboutBtn.onclick = ()=> setTab('about');
+  setTab('tally');
+
+  // API key field
+  const apiKeyInput = document.getElementById('apiKeyInput');
+  apiKeyInput.value = loadApiKey();
+  document.getElementById('saveApiKeyBtn').onclick = ()=>{
+    saveApiKey(apiKeyInput.value.trim());
+    showToast('API key সংরক্ষিত হয়েছে');
+  };
+
+  // Service worker registration for offline/installable PWA
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('sw.js').catch(err => console.error('SW register failed', err));
+    });
+  }
+
+  // ---------- Init ----------
+  renderDoc(); renderStacks(); renderSummary(); renderPdfSection(); renderLoadPlan();
+})();
+</script>
+</body>
+</html>
