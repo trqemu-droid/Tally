@@ -24,12 +24,7 @@ jobs:
         mkdir -p app/src/main/java/com/example/tallyhelper app/src/main/res/layout app/src/main/res/drawable app/src/main/res/xml app/src/main/assets
 
         cp icon.png app/src/main/res/drawable/app_icon.png 2>/dev/null || cp icon.jpg app/src/main/res/drawable/app_icon.png 2>/dev/null || cat << 'EOF' > app/src/main/res/drawable/app_icon.xml
-        <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-        <path android:fillColor="#26231C" android:pathData="M0,0h108v108h-108z"/>
-        <path android:fillColor="#D97B1F" android:pathData="M54,22L24,37L54,52L84,37Z"/>
-        <path android:fillColor="#B6620F" android:pathData="M24,39L24,69L52,85L52,54Z"/>
-        <path android:fillColor="#EDE2CC" android:pathData="M56,54L56,85L84,69L84,39Z"/>
-        </vector>
+        <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108"><path android:fillColor="#26231C" android:pathData="M0,0h108v108h-108z"/><path android:fillColor="#D97B1F" android:pathData="M54,22L24,37L54,52L84,37Z"/><path android:fillColor="#B6620F" android:pathData="M24,39L24,69L52,85L52,54Z"/><path android:fillColor="#EDE2CC" android:pathData="M56,54L56,85L84,69L84,39Z"/></vector>
         EOF
 
         cat << 'EOF' > gradle.properties
@@ -60,8 +55,8 @@ jobs:
                 applicationId "com.example.tallyhelper"
                 minSdk 24
                 targetSdk 34
-                versionCode 5
-                versionName "1.4"
+                versionCode 6
+                versionName "1.5"
             }
             buildTypes { release { minifyEnabled false } }
             compileOptions {
@@ -131,7 +126,6 @@ jobs:
         package com.example.tallyhelper;
         import android.Manifest;
         import android.content.*;
-        import android.content.pm.PackageManager;
         import android.media.MediaScannerConnection;
         import android.net.Uri;
         import android.os.*;
@@ -142,32 +136,26 @@ jobs:
         import androidx.activity.result.*;
         import androidx.activity.result.contract.ActivityResultContracts;
         import androidx.appcompat.app.*;
-        import androidx.core.content.*;
+        import androidx.core.content.FileProvider;
         import java.io.*;
-        import java.util.*;
 
         public class MainActivity extends AppCompatActivity {
             private WebView webView;
             private ValueCallback<Uri[]> filePathCallback;
-
-            private final ActivityResultLauncher<String[]> requestPermissionLauncher =
-                registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), p -> {});
-
-            private final ActivityResultLauncher<Intent> filePickerLauncher =
-                registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
-                    if (filePathCallback != null) {
-                        Uri[] res = (result.getResultCode() == RESULT_OK && result.getData() != null)
-                            ? WebChromeClient.FileChooserParams.parseResult(result.getResultCode(), result.getData()) : null;
-                        filePathCallback.onReceiveValue(res);
-                        filePathCallback = null;
-                    }
-                });
+            private final ActivityResultLauncher<String[]> permLauncher = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), p -> {});
+            private final ActivityResultLauncher<Intent> pickerLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), res -> {
+                if (filePathCallback != null) {
+                    Uri[] r = (res.getResultCode() == RESULT_OK && res.getData() != null) ? WebChromeClient.FileChooserParams.parseResult(res.getResultCode(), res.getData()) : null;
+                    filePathCallback.onReceiveValue(r);
+                    filePathCallback = null;
+                }
+            });
 
             @Override
             protected void onCreate(Bundle savedInstanceState) {
                 super.onCreate(savedInstanceState);
                 setContentView(R.layout.activity_main);
-                requestPermissionLauncher.launch(new String[]{Manifest.permission.CAMERA});
+                permLauncher.launch(new String[]{Manifest.permission.CAMERA});
 
                 webView = findViewById(R.id.webView);
                 WebSettings s = webView.getSettings();
@@ -182,13 +170,11 @@ jobs:
                 webView.addJavascriptInterface(new WebAppInterface(), "AndroidBridge");
                 webView.setWebChromeClient(new WebChromeClient() {
                     @Override
-                    public void onPermissionRequest(PermissionRequest r) {
-                        runOnUiThread(() -> r.grant(r.getResources()));
-                    }
+                    public void onPermissionRequest(PermissionRequest r) { runOnUiThread(() -> r.grant(r.getResources())); }
                     @Override
                     public boolean onShowFileChooser(WebView w, ValueCallback<Uri[]> cb, FileChooserParams fp) {
                         filePathCallback = cb;
-                        try { filePickerLauncher.launch(fp.createIntent()); return true; } catch(Exception e) { filePathCallback = null; return false; }
+                        try { pickerLauncher.launch(fp.createIntent()); return true; } catch(Exception e) { filePathCallback = null; return false; }
                     }
                 });
                 webView.setWebViewClient(new WebViewClient());
@@ -198,17 +184,6 @@ jobs:
             @Override
             public void onBackPressed() {
                 if (webView != null && webView.canGoBack()) webView.goBack(); else super.onBackPressed();
-            }
-
-            private void openPdf(Uri uri) {
-                try {
-                    Intent i = new Intent(Intent.ACTION_VIEW);
-                    i.setDataAndType(uri, "application/pdf");
-                    i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
-                    startActivity(Intent.createChooser(i, "PDF ওপেন করুন"));
-                } catch(Exception e) {
-                    Toast.makeText(this, "PDF দেখার মতো কোনো অ্যাপ নেই", Toast.LENGTH_SHORT).show();
-                }
             }
 
             public class WebAppInterface {
@@ -245,7 +220,16 @@ jobs:
                                 new AlertDialog.Builder(MainActivity.this)
                                     .setTitle("✅ PDF সংরক্ষিত হয়েছে!")
                                     .setMessage("ফাইলটি Download ফোল্ডারে সেভ হয়েছে।\nআপনি কি এখনই এটি দেখতে চান?")
-                                    .setPositiveButton("ওপেন করুন", (d, w) -> openPdf(finalUri))
+                                    .setPositiveButton("ওপেন করুন", (d, w) -> {
+                                        try {
+                                            Intent i = new Intent(Intent.ACTION_VIEW);
+                                            i.setDataAndType(finalUri, "application/pdf");
+                                            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+                                            startActivity(Intent.createChooser(i, "PDF ওপেন করুন"));
+                                        } catch(Exception e) {
+                                            Toast.makeText(MainActivity.this, "PDF দেখার মতো কোনো অ্যাপ নেই", Toast.LENGTH_SHORT).show();
+                                        }
+                                    })
                                     .setNegativeButton("না, থাক", null)
                                     .show();
                             }
@@ -260,7 +244,18 @@ jobs:
 
         cp index.html app/src/main/assets/index.html || cp *.html app/src/main/assets/index.html
 
-        python3 -c '
-        path = "app/src/main/assets/index.html"
-        try:
-            with ope
+        sed -i 's|pdf.save(filename);|if(window.AndroidBridge){window.AndroidBridge.savePdf(pdf.output("datauristring"),filename);}else{pdf.save(filename);}|' app/src/main/assets/index.html || true
+
+    - name: Setup Gradle 8.5
+      uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: "8.5"
+
+    - name: Build Debug APK
+      run: gradle assembleDebug
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: TallyHelper-APK
+        path: app/build/outputs/apk/debug/*.apk
