@@ -43,7 +43,6 @@
   .role-badge.public{ color:var(--ink-soft); }
   .btn-role-switch{ background:none; border:none; color:var(--stamp-amber-dark); font-weight:700; text-decoration:underline; font-size:13px; cursor:pointer; }
 
-  /* Locked Container Banner with Quick Next Button */
   .locked-banner{
     background:#FDF3E3; border:2px solid var(--stamp-amber-dark); border-radius:10px;
     padding:10px 12px; margin-bottom:12px; display:flex; flex-direction:column; gap:8px;
@@ -122,6 +121,12 @@
   .loading-row{ display:flex; align-items:center; gap:10px; padding:12px 4px; font-size:14px; color:var(--ink-soft); }
   .spinner{ width:20px; height:20px; border-radius:50%; border:3px solid var(--line); border-top-color:var(--stamp-amber); animation:spin 0.8s linear infinite; flex-shrink:0; }
   @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  .ai-compare-box{
+    background:#fff; border:1.5px solid var(--line); border-radius:8px; padding:10px 12px; margin-bottom:10px;
+    font-size:12px; line-height:1.5; color:var(--ink);
+  }
+  .ai-compare-box .badge{ font-weight:700; color:var(--stamp-amber-dark); }
 
   .count-input-row{ display:flex; align-items:center; gap:10px; margin:10px 0 14px; }
   .stepper{ display:flex; align-items:center; border:2px solid var(--ink); border-radius:8px; overflow:hidden; }
@@ -257,15 +262,6 @@
 </style>
 </head>
 <body>
-<!-- Live Error Banner -->
-<div id="jsErrorBanner" style="display:none;background:#B23A2E;color:#fff;padding:10px 14px;font-size:13px;font-weight:bold;position:sticky;top:0;z-index:999999;text-align:center;"></div>
-<script>
-window.addEventListener('error', function(e) {
-  var b = document.getElementById('jsErrorBanner');
-  if(b){ b.style.display = 'block'; b.textContent = 'ত্রুটি: ' + e.message + ' (Line ' + e.lineno + ')'; }
-});
-</script>
-
 <div class="wrap">
 
   <header>
@@ -356,15 +352,23 @@ window.addEventListener('error', function(e) {
       </div>
     </div>
 
+    <!-- Dual AI Setup: Gemini + OpenRouter -->
     <div class="doc-card">
-      <div class="doc-card-head"><span class="label">AI কার্টুন-গণনা সেটআপ</span></div>
+      <div class="doc-card-head"><span class="label">🤖 ডুয়েল এআই (AI) কার্টুন-গণনা সেটআপ</span></div>
+      <div style="font-size:12px; color:var(--ink-soft); margin-bottom:12px; line-height:1.4;">
+        দুটো এআই কি (Key) দিলে অ্যাপ স্বয়ংক্রিয়ভাবে উভয় মডেল দিয়ে গণনা করে ফলাফল তুলনা করবে। যেকোনো একটি দিলেও চলবে।
+      </div>
       <div class="doc-form">
         <div class="field">
-          <label>GOOGLE GEMINI API KEY</label>
+          <label>১. GOOGLE GEMINI API KEY</label>
           <input id="apiKeyInput" type="password" placeholder="AQ... বা AIza..." autocomplete="off">
         </div>
+        <div class="field">
+          <label>২. OPENROUTER API KEY</label>
+          <input id="openrouterKeyInput" type="password" placeholder="sk-or-v1-..." autocomplete="off">
+        </div>
         <div class="actions">
-          <button class="btn btn-primary btn-block" id="saveApiKeyBtn">সংরক্ষণ করুন</button>
+          <button class="btn btn-primary btn-block" id="saveAiKeysBtn">এআই কি (Keys) সংরক্ষণ করুন</button>
         </div>
       </div>
     </div>
@@ -374,7 +378,7 @@ window.addEventListener('error', function(e) {
     <div class="about-card" style="background:var(--card); border:2px solid var(--ink); border-radius:10px; padding:22px; text-align:center;">
       <div class="brand-stamp"><span style="font-size:20px;">📦</span> <span class="brand-title">কার্টুন টালি</span></div>
       <div style="font-family:'Oswald',sans-serif; font-size:18px; font-weight:700; margin-top:10px;">Tally Helper Pro</div>
-      <div style="font-size:12px; color:var(--ink-soft); margin-bottom:14px;">কন্টেইনার স্টাফিং ও টালি সহকারী</div>
+      <div style="font-size:12px; color:var(--ink-soft); margin-bottom:14px;">ডুয়েল এআই ভিশন ও লজিস্টিকস অডিট অ্যাপ</div>
       <div style="border-top:1.5px dashed var(--line); padding-top:12px; font-size:12px; color:var(--ink-soft);">
         Developed by: <b style="color:var(--ink);">TAREQUL ISLAM</b><br>KDS Logistics Ltd.
       </div>
@@ -419,12 +423,15 @@ window.addEventListener('error', function(e) {
   function setOfficeName(n){ safeSet('tally-helper:office-name', n); }
   function loadApiKey(){ return safeGet('tally-helper:gemini-api-key', ''); }
   function saveApiKey(k){ safeSet('tally-helper:gemini-api-key', k); }
+  function loadOpenrouterKey(){ return safeGet('tally-helper:openrouter-api-key', ''); }
+  function saveOpenrouterKey(k){ safeSet('tally-helper:openrouter-api-key', k); }
   function storageKey(cNo){ return 'container:' + cNo.trim().toUpperCase(); }
 
   const state = {
     containerNo: '', containerSize: '', dcCode: '', mloCode: '', tallymanName: '',
     stacks: [], isLocked: false, userRole: 'public', editingDoc: false,
     pendingImage: null, pendingCount: null, pendingMethod: null,
+    aiCompareInfo: null,
     loadingCount: false, cameraOpen: false, torchSupported: false, torchOn: false,
     generatingPdf: false, captureMode: 'stack',
     loadPlanImages: [], stageImages: { empty: null, finishing: null, seal: null }
@@ -467,7 +474,6 @@ window.addEventListener('error', function(e) {
     if(canc) canc.onclick = ()=>{ if(modal) modal.style.display = 'none'; };
   }
 
-  // PUBLIC: Start New Container Without PIN
   function startNewContainer(skipConfirm){
     if(!skipConfirm && !state.isLocked && state.stacks.length > 0){
       if(!confirm("বর্তমান কন্টেইনারের কাজ শেষ না করে কি নতুন কন্টেইনার শুরু করতে চান?")){
@@ -867,9 +873,58 @@ window.addEventListener('error', function(e) {
     reader.readAsDataURL(file);
   };
 
+  // ---------- Dual AI (Gemini + OpenRouter) Engine ----------
+  async function callGemini(apiKey, mediaType, base64) {
+    const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify({
+        contents: [{ parts: [
+          { inline_data: { mime_type: mediaType, data: base64 } },
+          { text: "Count carton boxes in foreground stack. Reply JSON only: {\"count\": <number>, \"confidence\": \"high\"|\"medium\"|\"low\"}." }
+        ]}],
+        generationConfig: { responseMimeType: "application/json", temperature: 0.2 }
+      })
+    });
+    if(!res.ok) throw new Error("Gemini error " + res.status);
+    const data = await res.json();
+    const txt = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const p = JSON.parse(txt.replace(/```json|```/g, '').trim());
+    return { count: Math.max(0, parseInt(p.count || 0)), conf: p.confidence || 'medium' };
+  }
+
+  async function callOpenRouter(apiKey, mediaType, base64) {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + apiKey,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://tallyhelper.app",
+        "X-Title": "Tally Helper"
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.0-flash-exp:free",
+        messages: [{
+          role: "user",
+          content: [
+            { type: "text", text: "Count carton boxes in foreground stack. Reply JSON only: {\"count\": <number>, \"confidence\": \"high\"|\"medium\"|\"low\"}." },
+            { type: "image_url", image_url: { url: "data:" + mediaType + ";base64," + base64 } }
+          ]
+        }]
+      })
+    });
+    if(!res.ok) throw new Error("OpenRouter error " + res.status);
+    const data = await res.json();
+    const txt = data?.choices?.[0]?.message?.content || '';
+    const p = JSON.parse(txt.replace(/```json|```/g, '').trim());
+    return { count: Math.max(0, parseInt(p.count || 0)), conf: p.confidence || 'medium' };
+  }
+
   async function handleNewImage(dataUrl, base64, mediaType){
     state.pendingImage = { dataUrl, mediaType, base64 };
-    state.pendingCount = null; state.loadingCount = true;
+    state.pendingCount = null;
+    state.aiCompareInfo = null;
+    state.loadingCount = true;
     renderCapture();
 
     if('BarcodeDetector' in window){
@@ -879,36 +934,55 @@ window.addEventListener('error', function(e) {
         const det = new window.BarcodeDetector();
         const b = await det.detect(img);
         if(b && b.length > 0){
-          state.pendingCount = b.length; state.loadingCount = false; renderCapture(); return;
+          state.pendingCount = b.length;
+          state.aiCompareInfo = `📷 বারকোড স্ক্যানার দ্বারা শনাক্ত (${b.length}টি)`;
+          state.loadingCount = false;
+          renderCapture();
+          return;
         }
       }catch(e){}
     }
 
-    const apiKey = loadApiKey();
-    if(!apiKey){
-      state.pendingCount = 0; state.loadingCount = false; renderCapture(); return;
+    const geminiKey = loadApiKey();
+    const openrouterKey = loadOpenrouterKey();
+
+    if(!geminiKey && !openrouterKey){
+      state.pendingCount = 0;
+      state.aiCompareInfo = '⚠️ সেটিংস ট্যাবে Gemini বা OpenRouter API Key দিন। নিচে সংখ্যা ম্যানুয়ালি বসান।';
+      state.loadingCount = false;
+      renderCapture();
+      return;
     }
 
-    try{
-      const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-        body: JSON.stringify({
-          contents: [{ parts: [
-            { inline_data: { mime_type: mediaType, data: base64 } },
-            { text: "Count carton boxes in foreground stack. Reply JSON only: {\"count\": <number>}." }
-          ]}]
-        })
-      });
-      const data = await res.json();
-      const txt = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      const p = JSON.parse(txt.replace(/```json|```/g, '').trim());
-      state.pendingCount = Math.max(0, parseInt(p.count || 0));
-    }catch(err){
+    const tasks = [];
+    if(geminiKey) tasks.push(callGemini(geminiKey, mediaType, base64).then(r => ({ provider: 'Gemini', ...r })));
+    if(openrouterKey) tasks.push(callOpenRouter(openrouterKey, mediaType, base64).then(r => ({ provider: 'OpenRouter', ...r })));
+
+    const results = await Promise.allSettled(tasks);
+    const successful = results.filter(r => r.status === 'fulfilled').map(r => r.value);
+
+    if(successful.length === 2){
+      const g = successful.find(s => s.provider === 'Gemini');
+      const o = successful.find(s => s.provider === 'OpenRouter');
+      if(g.count === o.count){
+        state.pendingCount = g.count;
+        state.aiCompareInfo = `✅ ডুয়েল এআই নিশ্চিত: উভয় মডেলে ${g.count}টি কার্টুন পাওয়া গেছে`;
+      } else {
+        const best = (g.conf === 'high' && o.conf !== 'high') ? g.count : (o.conf === 'high' && g.conf !== 'high') ? o.count : g.count;
+        state.pendingCount = best;
+        state.aiCompareInfo = `⚖️ ডুয়েল এআই তুলনা: Gemini (${g.count}) vs OpenRouter (${o.count}) → সেরা অনুমান: ${best}টি`;
+      }
+    } else if(successful.length === 1){
+      const single = successful[0];
+      state.pendingCount = single.count;
+      state.aiCompareInfo = `🤖 ${single.provider} AI দ্বারা গণনা (${single.count}টি)`;
+    } else {
       state.pendingCount = 0;
-    }finally{
-      state.loadingCount = false; renderCapture();
+      state.aiCompareInfo = '⚠️ এআই সংযোগে সমস্যা হয়েছে। নিচে ম্যানুয়ালি সংখ্যা বসিয়ে দিন।';
     }
+
+    state.loadingCount = false;
+    renderCapture();
   }
 
   function renderCapture(){
@@ -918,8 +992,11 @@ window.addEventListener('error', function(e) {
     const nextNo = state.stacks.length + 1;
     let b = `<div class="capture-img-wrap"><img src="${state.pendingImage.dataUrl}"></div>`;
     if(state.loadingCount){
-      b += `<div class="loading-row"><div class="spinner"></div> স্ট্যাক গোনা হচ্ছে…</div>`;
+      b += `<div class="loading-row"><div class="spinner"></div> ডুয়েল এআই (Gemini + OpenRouter) দিয়ে স্ট্যাক গোনা হচ্ছে…</div>`;
     } else {
+      if(state.aiCompareInfo){
+        b += `<div class="ai-compare-box">${state.aiCompareInfo}</div>`;
+      }
       b += `
         <div class="count-input-row">
           <div class="stepper">
@@ -1259,11 +1336,18 @@ window.addEventListener('error', function(e) {
       document.getElementById('newPinInput').value = '';
       showToast('✅ এডমিন পিন আপডেট হয়েছে');
     };
+    
+    // Save Both AI Keys
     const apiIn = document.getElementById('apiKeyInput');
+    const openrouterIn = document.getElementById('openrouterKeyInput');
     if(apiIn) apiIn.value = loadApiKey();
-    const saveApi = document.getElementById('saveApiKeyBtn');
-    if(saveApi) saveApi.onclick = ()=>{
-      if(apiIn) { saveApiKey(apiIn.value.trim()); showToast('API key সংরক্ষিত'); }
+    if(openrouterIn) openrouterIn.value = loadOpenrouterKey();
+
+    const saveAiBtn = document.getElementById('saveAiKeysBtn');
+    if(saveAiBtn) saveAiBtn.onclick = ()=>{
+      if(apiIn) saveApiKey(apiIn.value.trim());
+      if(openrouterIn) saveOpenrouterKey(openrouterIn.value.trim());
+      showToast('✅ এআই কি (Keys) সংরক্ষিত হয়েছে');
     };
   }
 
@@ -1305,8 +1389,7 @@ window.addEventListener('error', function(e) {
       setupTabs();
       setupSettings();
     }catch(err){
-      const b = document.getElementById('jsErrorBanner');
-      if(b){ b.style.display = 'block'; b.textContent = 'Init Error: ' + err.message; }
+      console.error(err);
     }
   }
 
